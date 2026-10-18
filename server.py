@@ -389,18 +389,23 @@ def sync_mongo_atlas():
 # FRONTEND STATIC ASSETS & SPA ROUTING
 # =========================================================================
 
-frontend_dir = os.path.join(os.path.dirname(__file__), "frontend")
-if os.path.exists(frontend_dir):
-    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+base_dir = os.path.dirname(__file__)
+static_dir = os.path.join(base_dir, "static") if os.path.exists(os.path.join(base_dir, "static")) else os.path.join(base_dir, "frontend")
+templates_dir = os.path.join(base_dir, "templates") if os.path.exists(os.path.join(base_dir, "templates")) else os.path.join(base_dir, "frontend")
+
+if os.path.exists(static_dir):
+    app.mount("/static", StaticFiles(directory=static_dir), name="static")
 
 
 @app.get("/")
 def serve_index():
     """Serves the main HTML5 / CSS3 / Vanilla JS single-page application."""
-    index_path = os.path.join(frontend_dir, "index.html")
+    index_path = os.path.join(templates_dir, "index.html")
+    if not os.path.exists(index_path):
+        index_path = os.path.join(static_dir, "index.html")
     if os.path.exists(index_path):
         return FileResponse(index_path)
-    return {"message": "Frontend index.html is being prepared."}
+    return {"message": "Frontend index.html not found."}
 
 
 if __name__ == "__main__":
