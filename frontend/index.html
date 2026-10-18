@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SDG in E-Commerce Analysis · Sustainability Intelligence Dashboard</title>
+    <meta name="description" content="Dual-Database (SQLite & MongoDB Atlas) Analytics Platform measuring SDG 12 (Responsible Consumption) and SDG 9 (Sustainable Logistics) in online retail transactions.">
+    <!-- Google Fonts: Outfit & Inter -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <!-- Chart.js 4.4 CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <!-- Top Header & Live Database Status -->
+    <header class="top-nav">
+        <div class="nav-brand">
+            <div class="brand-icon">🌱</div>
+            <div>
+                <h1 class="brand-title">ECO-METRICS</h1>
+                <p class="brand-subtitle">SDG E-Commerce Sustainability Hub · DCDS Lab Project</p>
+            </div>
+        </div>
+
+        <div class="nav-status-group">
+            <div id="db-mongo-status" class="status-pill status-loading">
+                <span class="status-dot"></span>
+                <span class="status-label">MongoDB: Connecting...</span>
+            </div>
+            <div id="db-sql-status" class="status-pill status-live">
+                <span class="status-dot"></span>
+                <span class="status-label">SQLite: 3NF Active</span>
+            </div>
+            <button id="btn-sync-atlas" class="btn-sync" title="Sync local models to MongoDB Atlas">
+                <span class="sync-icon">⚡</span> Sync Atlas
+            </button>
+        </div>
+    </header>
+
+    <!-- Global Sticky Filter Ribbon -->
+    <section class="filter-ribbon">
+        <div class="filter-item">
+            <label for="filter-country">Market / Country</label>
+            <select id="filter-country">
+                <option value="All">All Countries (38)</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label for="filter-category">Product Category</label>
+            <select id="filter-category">
+                <option value="All">All Categories (7)</option>
+            </select>
+        </div>
+
+        <div class="filter-item">
+            <label>Order Type</label>
+            <div class="toggle-group" id="order-status-toggles">
+                <button class="toggle-btn active" data-status="all">All Orders</button>
+                <button class="toggle-btn" data-status="fulfilled">Fulfilled</button>
+                <button class="toggle-btn" data-status="cancelled">Cancelled / Returns</button>
+            </div>
+        </div>
+
+        <div class="filter-actions">
+            <button id="btn-reset-filters" class="btn-secondary">Reset Filters</button>
+            <span id="active-filter-indicator" class="filter-indicator">Filtered: Active</span>
+        </div>
+    </section>
+
+    <!-- Main Navigation Bar -->
+    <nav class="sub-nav">
+        <button class="nav-tab active" data-tab="tab-overview">
+            <span class="tab-icon">📊</span> Commercial Overview
+        </button>
+        <button class="nav-tab" data-tab="tab-orders">
+            <span class="tab-icon">📦</span> Order & Reverse Logistics
+        </button>
+        <button class="nav-tab" data-tab="tab-sdg">
+            <span class="tab-icon">🌍</span> SDG Sustainability Insights
+        </button>
+        <button class="nav-tab" data-tab="tab-queries">
+            <span class="tab-icon">⚡</span> Data Explorer & Live Queries
+        </button>
+    </nav>
+
+    <!-- Application Body / Views -->
+    <main class="app-container">
+
+        <!-- ======================================================== -->
+        <!-- TAB 1: COMMERCIAL OVERVIEW -->
+        <!-- ======================================================== -->
+        <section id="tab-overview" class="view-panel active">
+            <!-- Headline KPI Cards Grid -->
+            <div class="kpi-grid">
+                <div class="kpi-card card-cyan">
+                    <div class="kpi-label">Gross Revenue</div>
+                    <div class="kpi-value" id="kpi-gross-rev">$10,304,056</div>
+                    <div class="kpi-meta">Fulfilled merchandise sales</div>
+                </div>
+
+                <div class="kpi-card card-emerald">
+                    <div class="kpi-label">Net Sales Revenue</div>
+                    <div class="kpi-value" id="kpi-net-rev">$9,586,873</div>
+                    <div class="kpi-meta" id="kpi-refund-meta">After -$717,183 refunds</div>
+                </div>
+
+                <div class="kpi-card card-purple">
+                    <div class="kpi-label">Total Invoices Placed</div>
+                    <div class="kpi-value" id="kpi-orders-count">23,252</div>
+                    <div class="kpi-meta" id="kpi-orders-meta">19,781 fulfilled | 3,471 cancelled</div>
+                </div>
+
+                <div class="kpi-card card-amber">
+                    <div class="kpi-label">Total Units Dispatched</div>
+                    <div class="kpi-value" id="kpi-units-sold">5,577,280</div>
+                    <div class="kpi-meta" id="kpi-aov-meta">Avg Order Value: $520.91</div>
+                </div>
+
+                <div class="kpi-card card-rose">
+                    <div class="kpi-label">Unique Customers</div>
+                    <div class="kpi-value" id="kpi-customers">4,362</div>
+                    <div class="kpi-meta">Across 38 International Markets</div>
+                </div>
+            </div>
+
+            <!-- Charts Row 1 -->
+            <div class="chart-grid-2">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">📈 Monthly Revenue & Refund Trajectory</h2>
+                        <span class="badge badge-accent">Annual Cadence</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-monthly-trends"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🏆 Top Selling Merchandise by Gross Revenue</h2>
+                        <span class="badge badge-primary">Catalog Demand</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-top-products"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Charts Row 2 -->
+            <div class="chart-grid-2">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🛍️ Category Revenue Distribution</h2>
+                        <span class="badge badge-emerald">Retail Segments</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-category-share"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🌐 Top International Destination Markets</h2>
+                        <span class="badge badge-purple">Geographic Spread</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-countries"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- TAB 2: ORDER & REVERSE LOGISTICS -->
+        <!-- ======================================================== -->
+        <section id="tab-orders" class="view-panel">
+            <div class="kpi-grid kpi-grid-3">
+                <div class="kpi-card card-rose">
+                    <div class="kpi-label">Overall Cancellation Rate</div>
+                    <div class="kpi-value" id="kpi-canc-rate">14.93%</div>
+                    <div class="kpi-meta">3,471 cancelled / returned orders</div>
+                </div>
+
+                <div class="kpi-card card-amber">
+                    <div class="kpi-label">Returned Units Volume</div>
+                    <div class="kpi-value" id="kpi-ret-units">272,125</div>
+                    <div class="kpi-meta">Units processed via reverse logistics</div>
+                </div>
+
+                <div class="kpi-card card-cyan">
+                    <div class="kpi-label">Refund Financial Churn</div>
+                    <div class="kpi-value" id="kpi-refund-amt">$717,183.21</div>
+                    <div class="kpi-meta">Lost merchandise value</div>
+                </div>
+            </div>
+
+            <div class="chart-grid-2">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🚨 High-Return Waste Hotspots (Top Returned Products)</h2>
+                        <span class="badge badge-rose">Reverse Logistics Churn</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-top-returned"></canvas>
+                    </div>
+                </div>
+
+                <div class="glass-card">
+                    <div class="card-header">
+                        <h2 class="card-title">🗺️ Cancellation Rate by Destination Market</h2>
+                        <span class="badge badge-amber">Min. 10 Orders</span>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="chart-country-canc"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="glass-card">
+                <div class="card-header">
+                    <h2 class="card-title">⏰ Order Purchasing Patterns by Day of Week</h2>
+                    <span class="badge badge-primary">Fulfilled vs Cancelled</span>
+                </div>
+                <div class="chart-container chart-container-sm">
+                    <canvas id="chart-day-patterns"></canvas>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- TAB 3: SDG SUSTAINABILITY INSIGHTS -->
+        <!-- ======================================================== -->
+        <section id="tab-sdg" class="view-panel">
+            <!-- SDG Sub-tabs Switcher -->
+            <div class="sdg-tabs-header">
+                <button class="sdg-subtab active" data-sdg="sdg-12">
+                    <span class="sdg-badge sdg-badge-12">SDG 12</span> Responsible Consumption & Waste Prevention
+                </button>
+                <button class="sdg-subtab" data-sdg="sdg-9">
+                    <span class="sdg-badge sdg-badge-9">SDG 9</span> Industry, Logistics & Transport Carbon
+                </button>
+            </div>
+
+            <!-- SDG 12 Section -->
+            <div id="sdg-12-content" class="sdg-subpanel active">
+                <div class="kpi-grid">
+                    <div class="kpi-card card-rose">
+                        <div class="kpi-label">Return-Induced Scrap</div>
+                        <div class="kpi-value" id="sdg-ret-waste">272,125</div>
+                        <div class="kpi-meta">Damaged / returned items</div>
+                    </div>
+                    <div class="kpi-card card-amber">
+                        <div class="kpi-label">Wasted Secondary Packaging</div>
+                        <div class="kpi-value" id="sdg-pack-scrap">13,606 kg</div>
+                        <div class="kpi-meta">Void-fill & carton discard from returns</div>
+                    </div>
+                    <div class="kpi-card card-emerald">
+                        <div class="kpi-label">Durable Circular Goods Share</div>
+                        <div class="kpi-value" id="sdg-durable-pct">42.8%</div>
+                        <div class="kpi-meta">Long-life reusable merchandise</div>
+                    </div>
+                    <div class="kpi-card card-cyan">
+                        <div class="kpi-label">Fulfilled Packaging Footprint</div>
+                        <div class="kpi-value" id="sdg-pack-mass">278,864 kg</div>
+                        <div class="kpi-meta">Estimated primary packaging cardboard/film</div>
+                    </div>
+                </div>
+
+                <div class="chart-grid-2">
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📦 Estimated Packaging Intensity by Category (kg)</h2>
+                            <span class="badge badge-amber">Material Weight</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-sdg12-packaging"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">♻️ Catalog Durability Ratio (Circular Economy)</h2>
+                            <span class="badge badge-emerald">SDG 12.5 Target</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-sdg12-durability"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommendations-container">
+                    <h3 class="section-title">💡 SDG 12 Data-Backed Action Recommendations</h3>
+                    <div class="rec-grid" id="sdg12-recs-grid">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- SDG 9 Section -->
+            <div id="sdg-9-content" class="sdg-subpanel">
+                <div class="kpi-grid kpi-grid-3">
+                    <div class="kpi-card card-rose">
+                        <div class="kpi-label">Estimated Logistics Freight Carbon</div>
+                        <div class="kpi-value" id="sdg9-total-co2">11,449.8 kg</div>
+                        <div class="kpi-meta">Total transport CO₂e across all routes</div>
+                    </div>
+                    <div class="kpi-card card-cyan">
+                        <div class="kpi-label">Domestic UK Ground Fleet</div>
+                        <div class="kpi-value" id="sdg9-uk-co2">8,057.7 kg</div>
+                        <div class="kpi-meta">Electric & diesel delivery couriers</div>
+                    </div>
+                    <div class="kpi-card card-amber">
+                        <div class="kpi-label">Cross-Border Long-Haul Fleet</div>
+                        <div class="kpi-value" id="sdg9-intl-co2">3,392.1 kg</div>
+                        <div class="kpi-meta">Europe freight & International air shipments</div>
+                    </div>
+                </div>
+
+                <div class="chart-grid-2">
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">🚚 Freight Emissions by Shipping Corridor</h2>
+                            <span class="badge badge-rose">kg CO₂e Footprint</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-sdg9-zones"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="glass-card">
+                        <div class="card-header">
+                            <h2 class="card-title">📦 Order Batching Efficiency (Units per Shipment)</h2>
+                            <span class="badge badge-cyan">SDG 9.4 Resource Efficiency</span>
+                        </div>
+                        <div class="chart-container">
+                            <canvas id="chart-sdg9-batching"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="recommendations-container">
+                    <h3 class="section-title">🚛 SDG 9 Infrastructure & Logistics Action Recommendations</h3>
+                    <div class="rec-grid" id="sdg9-recs-grid">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+
+        <!-- ======================================================== -->
+        <!-- TAB 4: DATA EXPLORER & ADVANCED QUERIES -->
+        <!-- ======================================================== -->
+        <section id="tab-queries" class="view-panel">
+            <!-- Query Playground Switcher -->
+            <div class="query-engine-tabs">
+                <button class="engine-tab active" data-engine="engine-sql">
+                    <span class="engine-icon">🗄️</span> SQLite Relational Query Lab
+                </button>
+                <button class="engine-tab" data-engine="engine-mongo">
+                    <span class="engine-icon">🍃</span> MongoDB Atlas Aggregation Lab ($match, $group)
+                </button>
+                <button class="engine-tab" data-engine="engine-data">
+                    <span class="engine-icon">📋</span> Raw Cleaned Data Explorer
+                </button>
+            </div>
+
+            <!-- SQL Playground -->
+            <div id="engine-sql" class="engine-panel active">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Advanced SQL Relational Query Runner</h2>
+                            <p class="card-desc">Execute faculty-required complex SQL relational queries against the 3NF SQLite database.</p>
+                        </div>
+                        <span id="sql-exec-badge" class="badge badge-emerald">Ready</span>
+                    </div>
+
+                    <div class="query-controls">
+                        <label for="sql-preset-select">Select Advanced SQL Template:</label>
+                        <select id="sql-preset-select" class="form-select">
+                            <option value="top5">Query 1: Top 5 Products by Revenue (JOIN + GROUP BY + ORDER BY)</option>
+                            <option value="monthly">Query 2: Monthly Revenue Summary (GROUP BY + CASE Aggregation)</option>
+                            <option value="join">Query 3: Multi-Table JOIN (Orders ↔ Order_Items ↔ Products)</option>
+                            <option value="subquery">Query 4: Subquery Identifying Products Above Catalog Average</option>
+                            <option value="category">Query 5: Category Performance & Durable Eco Ratio</option>
+                            <option value="custom">Custom SQL Query (Compose your own SELECT)</option>
+                        </select>
+                    </div>
+
+                    <div class="query-code-wrapper">
+                        <textarea id="sql-editor" rows="6" spellcheck="false"></textarea>
+                    </div>
+
+                    <div class="query-actions">
+                        <button id="btn-run-sql" class="btn-primary">▶️ Execute SQL Query</button>
+                        <span id="sql-timing" class="timing-label"></span>
+                    </div>
+
+                    <div class="table-wrapper" id="sql-table-container">
+                        <!-- SQL output table renders here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- MongoDB Aggregation Playground -->
+            <div id="engine-mongo" class="engine-panel">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">MongoDB NoSQL Aggregation Pipeline Runner</h2>
+                            <p class="card-desc">Execute multi-stage aggregation pipelines: <code>$match</code> → <code>$group</code> → <code>$sort</code> → <code>$project</code> on MongoDB Atlas.</p>
+                        </div>
+                        <span id="mongo-exec-badge" class="badge badge-accent">Atlas / Embedded</span>
+                    </div>
+
+                    <div class="query-controls">
+                        <label for="mongo-preset-select">Select Aggregation Pipeline:</label>
+                        <select id="mongo-preset-select" class="form-select">
+                            <option value="sdg_category">Pipeline 1: Group SDG Indicators by Category ($match, $group, $sort, $project)</option>
+                            <option value="logistics_zone">Pipeline 2: Freight Logistics Emissions by Region ($match, $group, $sort, $project)</option>
+                            <option value="recommendations">Pipeline 3: Recommendations by SDG Target ($match, $group, $sort, $project)</option>
+                            <option value="custom">Custom JSON Aggregation Pipeline</option>
+                        </select>
+                    </div>
+
+                    <div class="query-code-wrapper">
+                        <textarea id="mongo-editor" rows="7" spellcheck="false"></textarea>
+                    </div>
+
+                    <div class="query-actions">
+                        <button id="btn-run-mongo" class="btn-emerald">▶️ Run MongoDB Pipeline</button>
+                        <span id="mongo-timing" class="timing-label"></span>
+                    </div>
+
+                    <div class="table-wrapper" id="mongo-table-container">
+                        <!-- MongoDB output renders here -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Data Explorer Panel -->
+            <div id="engine-data" class="engine-panel">
+                <div class="glass-card">
+                    <div class="card-header">
+                        <div>
+                            <h2 class="card-title">Cleaned Retail Transactions Explorer</h2>
+                            <p class="card-desc">Inspect cleaned dataset records (536,734 total rows) according to active global filters.</p>
+                        </div>
+                        <button id="btn-export-csv" class="btn-secondary">📥 Export Filtered CSV</button>
+                    </div>
+
+                    <div class="search-bar-wrapper">
+                        <input type="text" id="data-search-input" placeholder="🔍 Search product descriptions or invoice numbers..." class="form-input">
+                    </div>
+
+                    <div class="table-wrapper" id="raw-data-table-container">
+                        <!-- Raw data renders here -->
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="app-footer">
+        <p>🌱 <strong>ECO-METRICS SDG Analytics Dashboard</strong> · Developed for DCDS Lab ESE · Full-Stack Python FastAPI + Vanilla HTML5/CSS3 · Connected to SQLite & MongoDB Atlas</p>
+    </footer>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

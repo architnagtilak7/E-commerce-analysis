@@ -19,8 +19,11 @@ import pymongo
 from pymongo.errors import ConnectionFailure, ServerSelectionTimeoutError
 import mongomock
 
-DB_NAME = "dcds_ecommerce_sdg"
-DEFAULT_MONGO_URI = "mongodb://localhost:27017/"
+from dotenv import load_dotenv
+load_dotenv()
+
+DB_NAME = os.getenv("MONGODB_DB_NAME", "dcds_ecommerce_sdg")
+DEFAULT_MONGO_URI = os.getenv("MONGODB_URI", "mongodb://localhost:27017/")
 
 # Global client cache
 _cached_client = None
@@ -28,32 +31,55 @@ _client_mode = None  # "live" or "embedded"
 _last_error = None
 
 
-def get_mongo_client(uri: str = DEFAULT_MONGO_URI, timeout_ms: int = 1500) -> Tuple[Any, str, Optional[str]]:
+def mask_mongo_uri(uri: str) -> str:
+    """Masks credentials in MongoDB connection string for safe UI display and logging."""
+    if not uri or "@" not in uri:
+        return uri
+    try:
+        prefix, rest = uri.split("://", 1)
+        creds, host_part = rest.split("@", 1)
+        if ":" in creds:
+            user = creds.split(":", 1)[0]
+            return f"{prefix}://{user}:****@{host_part}"
+        return f"{prefix}://****@{host_part}"
+    except Exception:
+        return "mongodb+srv://[credentials-hidden]"
+
+
+def get_mongo_client(uri: Optional[str] = None, timeout_ms: int = 5000) -> Tuple[Any, str, Optional[str]]:
     """
-    Connects to MongoDB. If connection fails or times out, seamlessly falls back
-    to an embedded mongomock client with a descriptive notification.
+    Connects to MongoDB (Local or MongoDB Atlas). If connection fails or times out,
+    seamlessly falls back to an embedded mongomock client with a descriptive notification.
     Returns: (client, mode, status_message)
     """
     global _cached_client, _client_mode, _last_error
     
+    if uri is None:
+        uri = os.getenv("MONGODB_URI", DEFAULT_MONGO_URI)
+        
     if _cached_client is not None:
         return _cached_client, _client_mode, _last_error
     
-    # 1. Attempt connection to live MongoDB
+    safe_uri = mask_mongo_uri(uri)
+    is_atlas = "mongodb+srv://" in uri or "mongodb.net" in uri
+    effective_timeout = timeout_ms if not is_atlas else max(timeout_ms, 6000)
+    
+    # 1. Attempt connection to live MongoDB (Local or Atlas)
     try:
-        live_client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=timeout_ms)
+        live_client = pymongo.MongoClient(uri, serverSelectionTimeoutMS=effective_timeout)
         # Verify connection by issuing ping command
         live_client.admin.command('ping')
         _cached_client = live_client
         _client_mode = "live"
         _last_error = None
-        return _cached_client, "live", f"Connected to Live MongoDB at {uri}"
+        target_name = "MongoDB Atlas Cloud" if is_atlas else "Live MongoDB Server"
+        return _cached_client, "live", f"Connected to {target_name} at {safe_uri}"
     except (ConnectionFailure, ServerSelectionTimeoutError, Exception) as e:
         # 2. Graceful fallback to high-fidelity embedded MongoDB engine
         embedded_client = mongomock.MongoClient()
         _cached_client = embedded_client
         _client_mode = "embedded"
-        _last_error = f"Live MongoDB server ({uri}) unavailable: {str(e)}. Operating in Embedded MongoDB Mode (mongomock)."
+        _last_error = f"Live MongoDB ({safe_uri}) unreachable: {str(e)[:120]}... Operating in Embedded MongoDB Mode (mongomock)."
         return _cached_client, "embedded", _last_error
 
 

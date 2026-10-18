@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: sdg-ecommerce-analysis
+    runtime: python
+    plan: free
+    buildCommand: pip install -r requirements.txt && python data_cleaning.py && python sql_database.py
+    startCommand: uvicorn server:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: MONGODB_URI
+        sync: false # Enter your MongoDB Atlas connection string in Render Dashboard
+      - key: MONGODB_DB_NAME
+        value: dcds_ecommerce_sdg
+      - key: PORT
+        value: 10000

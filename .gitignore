@@ -1,8 +1,14 @@
+# Environment Variables & Secrets
+.env
+.env.local
+.env.*.local
+*.env
+!.env.example
+
 # Python & Virtual Environments
 __pycache__/
 *.py[cod]
 *$py.class
-*.env
 .venv/
 env/
 venv/
