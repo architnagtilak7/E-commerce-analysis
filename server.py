@@ -11,8 +11,15 @@ Serves:
 """
 
 import os
+import sys
 import time
 import json
+
+if sys.stdout.encoding != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except Exception:
+        pass
 from typing import Dict, Any, List, Optional
 from fastapi import FastAPI, Query, HTTPException, Body
 from fastapi.staticfiles import StaticFiles
